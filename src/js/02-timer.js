@@ -1,107 +1,126 @@
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.min.css';
-import { Report } from 'notiflix/build/notiflix-report-aio';
+import Notiflix from 'notiflix';
+// one by one
 
-document.body.style.backgroundColor = '#ece5da';
-const TIMER_DELAY = 1000;
-let intervalId = null;
+const refs = {
+  startBtn: document.querySelector('[data-start]'),
+  stopBtn: document.querySelector('[data-stop]'),
+  days: document.querySelector('[data-days]'),
+  hours: document.querySelector('[data-hours]'),
+  minutes: document.querySelector('[data-minutes]'),
+  seconds: document.querySelector('[data-seconds]'),
+};
+
+refs.startBtn.setAttribute('disabled', 'disabled');
+refs.stopBtn.setAttribute('disabled', 'disabled');
 let selectedDate = null;
 let currentDate = null;
-const calendar = document.querySelector('#datetime-picker');
-const startBtn = document.querySelector('[data-start-timer]');
-startBtn.disabled = true;
 
-Report.info(
-  '👋 Greeting, my Friend!',
-  'Please, choose a date and click on start',
-  'Okay'
-);
+class Timer {
+  constructor() {
+    this.intervalId = null;
+    this.isActive = false;
+  }
 
-flatpickr(calendar, {
-  enableTime: true,
-  time_24hr: true,
-  defaultDate: new Date(),
-  minuteIncrement: 1,
-  onClose(selectedDates) {
-    if (selectedDates[0].getTime() < Date.now()) {
-      Report.failure(
-        '🥺 Ooops...',
-        'Please, choose a date in the future and remember: "Knowledge rests not upon truth alone, but upon error also." - Carl Gustav Jung',
-        'Okay'
-      );
-    } else {
-      Report.success(
-        '🥰 Congratulation! Click on start!',
-        '"Do not try to become a person of success but try to become a person of value." <br/><br/>- Albert Einstein',
-        'Okay'
-      );
-      startBtn.disabled = false;
-      const setTimer = () => {
-        selectedDate = selectedDates[0].getTime();
-        timer.start();
-      };
+  start(selectedDate, currentDate) {
+    this.isActive = true;
+    updateTimer(selectedDate - currentDate);
+    currentDate += 1000;
 
-      startBtn.addEventListener('click', setTimer);
-    }
-  },
-});
-
-const timer = {
-  rootSelector: document.querySelector('.timer'),
-  start() {
-    intervalId = setInterval(() => {
-      startBtn.disabled = true;
-      calendar.disabled = true;
-      currentDate = Date.now();
-      const delta = selectedDate - currentDate;
-
-      if (delta <= 0) {
+    this.intervalId = setInterval(() => {
+      let remainder = selectedDate - currentDate;
+      currentDate += 1000;
+      if (remainder <= 0) {
+        refs.stopBtn.setAttribute('disabled', 'disabled');
         this.stop();
-        Report.info(
-          '👏 Congratulation! Timer stopped!',
-          'Please, if you want to start timer, choose a date and click on start or reload this page',
-          'Okay'
-        );
         return;
       }
-      const { days, hours, minutes, seconds } = this.convertMs(delta);
-      this.rootSelector.querySelector('[data-days]').textContent =
-        this.addLeadingZero(days);
-      this.rootSelector.querySelector('[data-hours]').textContent =
-        this.addLeadingZero(hours);
-      this.rootSelector.querySelector('[data-minutes]').textContent =
-        this.addLeadingZero(minutes);
-      this.rootSelector.querySelector('[data-seconds]').textContent =
-        this.addLeadingZero(seconds);
-    }, TIMER_DELAY);
-  },
+      updateTimer(remainder);
+    }, 1000);
+    Notiflix.Notify.success('Timer started');
+  }
 
   stop() {
-    clearInterval(intervalId);
-    this.intervalId = null;
-    startBtn.disabled = true;
-    calendar.disabled = false;
-  },
+    clearInterval(this.intervalId);
+    this.isActive = false;
+  }
 
   convertMs(ms) {
+    // Number of milliseconds per unit of time
     const second = 1000;
     const minute = second * 60;
     const hour = minute * 60;
     const day = hour * 24;
 
-    const days = this.addLeadingZero(Math.floor(ms / day));
-    const hours = this.addLeadingZero(Math.floor((ms % day) / hour));
-    const minutes = this.addLeadingZero(
-      Math.floor(((ms % day) % hour) / minute)
-    );
-    const seconds = this.addLeadingZero(
-      Math.floor((((ms % day) % hour) % minute) / second)
-    );
+    // Remaining days
+    const days = Math.floor(ms / day);
+    // Remaining hours
+    const hours = Math.floor((ms % day) / hour);
+    // Remaining minutes
+    const minutes = Math.floor(((ms % day) % hour) / minute);
+    // Remaining seconds
+    const seconds = Math.floor((((ms % day) % hour) % minute) / second);
 
     return { days, hours, minutes, seconds };
-  },
+  }
+}
 
-  addLeadingZero(value) {
-    return String(value).padStart(2, 0);
+const timer = new Timer();
+
+const options = {
+  enableTime: true,
+  time_24hr: true,
+  defaultDate: new Date(),
+  minuteIncrement: 1,
+  onClose(selectedDates) {
+    refs.startBtn.setAttribute('disabled', 'disabled');
+    selectedDate = selectedDates[0].getTime();
+    currentDate = new Date().getTime();
+
+    if (selectedDate < currentDate) {
+      //   window.alert('Please choose a date in the future');
+      Notiflix.Notify.failure('Please choose a date in the future');
+      return;
+    }
+
+    refs.startBtn.removeAttribute('disabled');
   },
 };
+
+const updateTimer = remainder => {
+  const time = timer.convertMs(remainder);
+  refs.days.textContent = addLeadingZero(time.days);
+  refs.hours.textContent = addLeadingZero(time.hours);
+  refs.minutes.textContent = addLeadingZero(time.minutes);
+  refs.seconds.textContent = addLeadingZero(time.seconds);
+};
+
+const onStartBtnClick = () => {
+  //   updateTimer(remainder);
+  timer.start(selectedDate, currentDate);
+  refs.stopBtn.textContent = 'Stop';
+
+  refs.startBtn.setAttribute('disabled', 'disabled');
+  refs.stopBtn.removeAttribute('disabled');
+};
+const onStopBtnClick = () => {
+  refs.stopBtn.textContent = 'Reset';
+  if (!timer.isActive) {
+    refs.days.textContent = '00';
+    refs.hours.textContent = '00';
+    refs.minutes.textContent = '00';
+    refs.seconds.textContent = '00';
+    refs.stopBtn.setAttribute('disabled', 'disabled');
+  }
+  timer.stop();
+
+  //   isActive = false;
+};
+const addLeadingZero = value => {
+  return String(value).padStart(2, '0');
+};
+
+flatpickr('#datetime-picker', options);
+refs.startBtn.addEventListener('click', onStartBtnClick);
+refs.stopBtn.addEventListener('click', onStopBtnClick);

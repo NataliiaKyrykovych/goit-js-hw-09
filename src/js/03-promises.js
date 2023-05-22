@@ -1,20 +1,13 @@
-import { Notify } from 'notiflix/build/notiflix-notify-aio';
-document.body.style.backgroundColor = '#f7eff4';
-const form = document.querySelector('form.form');
-const options = {
-  position: 'center-bottom',
-  distance: '15px',
-  borderRadius: '15px',
-  timeout: 10000,
-  clickToClose: true,
-  cssAnimationStyle: 'from-right',
+import Notiflix from 'notiflix';
+
+const refs = {
+  form: document.querySelector('form'),
 };
 
-form.addEventListener('click', onPromiseCreate);
-
 function createPromise(position, delay) {
+  const shouldResolve = Math.random() > 0.3;
+
   return new Promise((resolve, reject) => {
-    const shouldResolve = Math.random() > 0.3;
     setTimeout(() => {
       if (shouldResolve) {
         resolve({ position, delay });
@@ -25,29 +18,28 @@ function createPromise(position, delay) {
   });
 }
 
-function onPromiseCreate(e) {
-  e.preventDefault();
-  const { delay, step, amount } = e.currentTarget.elements;
-  let inputDelay = Number(delay.value);
-  let inputStep = Number(step.value);
-  let inputAmount = Number(amount.value);
+const onSubmittingClick = event => {
+  event.preventDefault();
+  let { delay, step, amount } = event.target.elements;
+  delay = Number(delay.value);
+  step = Number(step.value);
+  amount = Number(amount.value);
+  if (amount <= 0 || delay < 0 || step < 0) {
+    Notiflix.Notify.failure(` Please input correct values (>=0)`);
+    return;
+  }
 
-  for (let i = 1; i <= inputAmount; i += 1) {
-    inputDelay += inputStep;
-
-    createPromise(i, inputDelay)
+  for (let position = 0; position < amount; position += 1) {
+    createPromise(position, delay)
       .then(({ position, delay }) => {
-        Notify.success(
-          `✅ Fulfilled promise ${position} in ${delay}ms`,
-          options
-        );
+        Notiflix.Notify.success(` Fulfilled promise ${position} in ${delay}ms`);
       })
       .catch(({ position, delay }) => {
-        Notify.failure(
-          `❌ Rejected promise ${position} in ${delay}ms`,
-          options
-        );
+        Notiflix.Notify.failure(` Rejected promise ${position} in ${delay}ms`);
       });
-    e.currentTarget.reset();
+    delay += step;
   }
-}
+  refs.form.reset();
+};
+
+refs.form.addEventListener('submit', onSubmittingClick);
